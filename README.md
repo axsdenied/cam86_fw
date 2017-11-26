@@ -19,14 +19,15 @@ https://github.com/gehelem/indi_cam86_ccd
 (Indi driver for Cam86)
 
 # Authors:
-Original camera hardware and low-level camera interaction was written in Delphi by Gilmanov Rim (Гильманов Рим)
+Gilmanov Rim (Гильманов Рим) - original camera hardware and low-level camera interaction
 
-Ascom driver was written by Sergiy Vakulenko
+Sergiy Vakulenko - Original ASCOM driver 
 
 Their code is shared on Sergiy Vakulenko 's Github :
 https://github.com/vakulenko/CAM8_software
 
-Current modifications/extensions/customisations to the firmware/low-level driver/ASCOM driver- Luka Pravica
+
+Luka Pravica - current modifications/extensions/customisations to the firmware, low-level driver and ASCOM driver
 
 All derived work from this code must be kept free and opensource as governed by GPL v2 or later (see the included file COPYING).
 
