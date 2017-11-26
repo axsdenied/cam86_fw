@@ -20,7 +20,9 @@ https://github.com/gehelem/indi_cam86_ccd
 
 # Authors:
 Original camera hardware and low-level camera interaction was written in Delphi by Gilmanov Rim (Гильманов Рим)
+
 Ascom driver was written by Sergiy Vakulenko
+
 Their code is shared on Sergiy Vakulenko 's Github :
 https://github.com/vakulenko/CAM8_software
 
