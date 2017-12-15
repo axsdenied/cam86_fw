@@ -73,6 +73,41 @@ typedef unsigned int uint16_t;
 #define DHT22_CLR PORTB &= ~DHT22_BIT  
 #define DHT22_PIN (PINB & DHT22_BIT)
 
+#define COMMAND_READFRAME               0x1b
+#define COMMAND_SHIFT3                  0x2b
+#define COMMAND_OFF15V                  0x3b
+#define COMMAND_SET_ROISTARTY           0x4b
+#define COMMAND_SET_ROINUMY             0x5b
+#define COMMAND_SET_EXPOSURE            0x6b
+#define COMMAND_SET_BINNING             0x8b    
+#define COMMAND_ONOFFCOOLER             0x9b
+#define COMMAND_SET_TARGETTEMP          0xab
+#define COMMAND_CLEARFRAME              0xcb
+#define COMMAND_INITMCU                 0xdb
+#define COMMAND_SET_DELAYPERLINE        0xeb
+#define COMMAND_SET_COOLERONDURINGREAD  0xfb
+#define COMMAND_SET_COOLERPOWERSTART    0x0a
+#define COMMAND_SET_COOLERPOWERMAX      0x1a
+#define COMMAND_SET_PIDKP               0x2a
+#define COMMAND_SET_PIDKI               0x3a
+#define COMMAND_SET_PIDKD               0x4a
+#define COMMAND_GET_CASETEMP            0xf1
+#define COMMAND_GET_CASEHUM             0xf2
+#define COMMAND_GET_CCDTEMP             0xbf
+#define COMMAND_GET_TARGETTEMP          0xbe
+#define COMMAND_GET_COOLERSTATUS        0xbd
+#define COMMAND_GET_COOLERPOWER         0xbc
+#define COMMAND_GET_VERSION             0xbb
+#define COMMAND_GET_COOLERPOWERSTART    0xba
+#define COMMAND_GET_COOLERPOWERMAX      0xb9
+#define COMMAND_GET_PIDKP_LW            0xb8
+#define COMMAND_GET_PIDKP_HW            0xb7
+#define COMMAND_GET_PIDKI_LW            0xb6
+#define COMMAND_GET_PIDKI_HW            0xb5
+#define COMMAND_GET_PIDKD_LW            0xb4
+#define COMMAND_GET_PIDKD_HW            0xb3
+
+
 unsigned char k0;
 unsigned char k1;
 unsigned char k2;
@@ -111,12 +146,15 @@ uint16_t sensorHumOutBuffer;
 
 uint8_t DHTpr;
 
-float U = 0.0;
 
 uint8_t TECstartingPowerPercentage = 60;
 uint8_t TECmaxPowerPercentage = 100;
 
-float KP = 0.04;
+float U = 0.0;
+float Kp = 0.04;
+float Ki = 0.0;
+float Kd = 0.0;
+
 
 struct TDHT22_Data
 {
@@ -156,40 +194,40 @@ interrupt [PC_INT0] void pcint0(void)
     switch (command)
     {
         // read frame
-        case 0x1b:   
+        case COMMAND_READFRAME:                 
             frame();
             break;
         // shift3
-        case 0x2b:       
+        case COMMAND_SHIFT3:       
             shift3();
             break;
         // off 15v
-        case 0x3b:  
+        case COMMAND_OFF15V:  
             PORTD = 0x4f;
             zad2(1);
             PORTD = 0x4f;
             break;
         //ROI, StartY
-        case 0x4b:
+        case COMMAND_SET_ROISTARTY:
             y0 = parcom;
             break;
         //ROI, NumY
-        case 0x5b:
+        case COMMAND_SET_ROINUMY:
             dy = parcom;
             break;
         //set exposure
-        case 0x6b:
+        case COMMAND_SET_EXPOSURE:
             expoz = parcom;
             break;
         //set binning                    
-        case 0x8b:
+        case COMMAND_SET_BINNING:
             if ((parcom==TRUE) || (parcom==FALSE))
             {
                 bining = parcom;
             }
             break;
         // on/off cooler
-        case 0x9b:
+        case COMMAND_ONOFFCOOLER:
             if ((parcom==TRUE) || (parcom==FALSE))
             {
                 coolerOnInBuffer = parcom;                      
@@ -203,45 +241,51 @@ interrupt [PC_INT0] void pcint0(void)
             }
             break;
         // set target temperature
-        case 0xab:
+        case COMMAND_SET_TARGETTEMP:
             if ((parcom <= MAX_TEMP) && (parcom >= MIN_TEMP))
             {
                 targetTempInBuffer = parcom;
             }
             break;
         // clear frame
-        case 0xcb:
+        case COMMAND_CLEARFRAME:
             clearframe();
             break;
         //Init command - initialize MCU
-        case 0xdb:
+        case COMMAND_INITMCU:
             initCamera();
             break;
         //delay per one line    
-        case 0xeb:
+        case COMMAND_SET_DELAYPERLINE:
             delay = parcom;
             break;         
         // if cooler should be on during the frame reading
-        case 0xfb:
+        case COMMAND_SET_COOLERONDURINGREAD:
             coolerOnDuringReading = parcom;
             break;  
         // set power that cooler will start at 
-        case 0x0a:  
+        case COMMAND_SET_COOLERPOWERSTART:  
             TECstartingPowerPercentage = parcom;
             break;                            
         // set max power to the cooler
-        case 0x1a:                            
+        case COMMAND_SET_COOLERPOWERMAX:                            
             if (parcom > 100)
                 TECmaxPowerPercentage = 100;  
             else                
                 TECmaxPowerPercentage = parcom;
             break;                      
-        // set TEC KP (proportional) gain parameter
-        // note the parameter is transfered as integer multiplied by 1000.0
-        // the range of the parameter is 0.001 to 65.535            
+        // set TEC KP, Ki and Kd parameter
+        // note the parameter is transfered as integer multiplied by 100.0
+        // the range of the parameter is 0.01 to 655.35            
         // note that we cannot read the parameter in this form as the compiler has issues converting float to int in some cases (see below)
-        case 0x2a:
-            KP = parcom / 1000.0; // divide by 1000.0 to get the real value of the parameter
+        case COMMAND_SET_PIDKP:
+            Kp = parcom / 100.0; // divide by 100.0 to get the real value of the parameter
+            break;
+        case COMMAND_SET_PIDKI:
+            Ki = parcom / 100.0; // divide by 100.0 to get the real value of the parameter
+            break;
+        case COMMAND_SET_PIDKD:
+            Kd = parcom / 100.0; // divide by 100.0 to get the real value of the parameter
             break;
         default:
             break;
@@ -508,6 +552,8 @@ void PIDLoop (void)
 {
     //float U = 0.0;
     float E = 0.0;
+    float lastE = 0.0;
+    float accE = 0.0;
     while (1)
     {
         if (DHTpr == 0)
@@ -525,13 +571,20 @@ void PIDLoop (void)
             coolerPower=0x00;
             U=0.0;
             E=0.0;
+            lastE = 0.0;
+            accE = 0.0;
             PORTB &=~0x01;
             delay_ms(CYCLE);
         }
         else
         {
+            // Current error   
             E = (float)sensorTemp - (float)targetTemp;
-            U = U + KP * E;
+            // Accumulated error
+            accE += E;
+            // PID 
+            U = Kp * E + Ki * accE + Kd * (E - lastE);
+            lastE = E;            
             if (U > ((float)TECmaxPowerPercentage)/100.0 * ((float)CYCLE))
                 U = ((float)TECmaxPowerPercentage)/100.0 * ((float)CYCLE);
             if (U <= 0.0)
@@ -893,11 +946,10 @@ uint16_t resi(void)
 {
     uint8_t x, count;
     uint16_t buf, buf2;  
-    float z;
-    uint16_t w;
     
     buf = 0;
-
+    
+    // Serial command reading
     for (x = 0;x < 8;x++)
     {
         count = 0;
@@ -930,22 +982,22 @@ uint16_t resi(void)
     switch (command)
      {
         //send back current Hum & Temp2
-        case 0xf1:
+        case COMMAND_GET_CASETEMP:
             buf2 = sensorTempDHTOutBuffer;
             break;
-        case 0xf2:
+        case COMMAND_GET_CASEHUM:
             buf2 = sensorHumOutBuffer;
             break;   
         //send back current temperature
-        case 0xbf:
+        case COMMAND_GET_CCDTEMP:
             buf2 = sensorTempOutBuffer;   
             break;
         //send back current target temperature
-        case 0xbe:
+        case COMMAND_GET_TARGETTEMP:
             buf2 = targetTempInBuffer; 
             break;
         //send back current coolen On/Off status
-        case 0xbd:
+        case COMMAND_GET_COOLERSTATUS:
             if (coolerOnInBuffer == TRUE)   
             {
                 buf2 = TRUE_INV_PROT;
@@ -956,19 +1008,19 @@ uint16_t resi(void)
             }
             break;
         //send back current cooler power percentage
-        case 0xbc:
+        case COMMAND_GET_COOLERPOWER:
             buf2 = coolerPowerOutBuffer | HIGH_MASK_PROT;
             break;    
         // send back version
-        case 0xbb:
+        case COMMAND_GET_VERSION:
             buf2 = VERSION;
             break;  
         // send back TEC starting power   
-        case 0xba:
+        case COMMAND_GET_COOLERPOWERSTART:
             buf2 = TECstartingPowerPercentage;    
             break;                     
         // send back TEC max power
-        case 0xb9:
+        case COMMAND_GET_COOLERPOWERMAX:
             buf2 = TECmaxPowerPercentage;  
             break;                
         // send back the PID proportional gain lower word
@@ -979,20 +1031,40 @@ uint16_t resi(void)
         // float x = a * 1000.0 equals 100.0
         // ??????
         // we read 4-byte long byte array and convert it to a floating point
-        case 0xb8:
-            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&KP))[0];
-            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&KP))[1];             
+        case COMMAND_GET_PIDKP_LW:
+            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&Kp))[0];
+            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&Kp))[1];             
             break;  
         // send back the PID proportional gain higher word
-        case 0xb7:               
-            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&KP))[2];
-            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&KP))[3];             
+        case COMMAND_GET_PIDKP_HW:               
+            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&Kp))[2];
+            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&Kp))[3];             
+            break;                            
+        // we read 4-byte long byte array and convert it to a floating point
+        case COMMAND_GET_PIDKI_LW:
+            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&Ki))[0];
+            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&Ki))[1];             
+            break;  
+        // send back the PID proportional gain higher word
+        case COMMAND_GET_PIDKI_HW:               
+            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&Ki))[2];
+            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&Ki))[3];             
+            break;                            
+        // we read 4-byte long byte array and convert it to a floating point
+        case COMMAND_GET_PIDKD_LW:
+            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&Kd))[0];
+            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&Kd))[1];             
+            break;  
+        // send back the PID proportional gain higher word
+        case COMMAND_GET_PIDKD_HW:               
+            ((unsigned char*) (&buf2))[0] = ((unsigned char*) (&Kd))[2];
+            ((unsigned char*) (&buf2))[1] = ((unsigned char*) (&Kd))[3];             
             break;                            
         default:
             buf2 = 0;
             break;
      }
-     
+    // Serial parameter reading 
     for (x = 0;x < 16;x++)
     {
         count = 0;
