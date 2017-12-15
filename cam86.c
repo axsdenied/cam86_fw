@@ -18,7 +18,7 @@
 #include <delay.h>
 #include <math.h>
 
-#define VERSION 9
+#define VERSION 10
 
 //User configurable definitions
 
@@ -171,6 +171,7 @@ void reset(void);
 void wbyte(uint8_t byte);
 uint8_t rbyte(void);
 void PIDLoop (void);
+void enforceTECPowerLimits(void);
 void initCamera (void);
 
 void frame(void);    
@@ -235,8 +236,8 @@ interrupt [PC_INT0] void pcint0(void)
                 // restart cooler with starting value only if it is not already running
                 if ((coolerOnInBuffer == TRUE) && (coolerOn == FALSE)) {
                     U = ((float)TECstartingPowerPercentage)/100.0 * CYCLE;
-                    if (U > (TECmaxPowerPercentage/100.0 * CYCLE))
-                        U = TECmaxPowerPercentage/100.0 * CYCLE;
+                    
+                    enforceTECPowerLimits();
                 }
             }
             break;
@@ -548,6 +549,15 @@ void readDHT22()
        // PORTB &= ~0x80;
 }
 
+void enforceTECPowerLimits(void)
+{
+    if (U > ((float)TECmaxPowerPercentage)/100.0 * ((float)CYCLE))
+        U = ((float)TECmaxPowerPercentage)/100.0 * ((float)CYCLE);       
+        
+    if (U < 0.0)
+        U = 0.0;
+}
+
 void PIDLoop (void)
 {
     //float U = 0.0;
@@ -584,19 +594,16 @@ void PIDLoop (void)
             accE += E;
             // PID 
             U = Kp * E + Ki * accE + Kd * (E - lastE);
-            lastE = E;            
-            if (U > ((float)TECmaxPowerPercentage)/100.0 * ((float)CYCLE))
-                U = ((float)TECmaxPowerPercentage)/100.0 * ((float)CYCLE);
-            if (U <= 0.0)
-            {
-                U = 0.0;
-            }            
+            lastE = E;                  
+            
+            enforceTECPowerLimits();
+       
             if (U > 0.0)
             {
                 PORTB |= 0x01;    
             }
             delay_ms(U);                              
-            if (((uint16_t) U)!=CYCLE)
+            if (((uint16_t) U)!= CYCLE)
             {
                 PORTB &=~0x01;
             }
