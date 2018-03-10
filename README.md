@@ -1,5 +1,5 @@
 # cam86 firmware
-Custom firmware for CAM86 DIY camera (Sony ICX453AQ).
+Custom firmware for CAM86 DIY camera (Sony ICX453AQ sensor).
 
 This project is based on work of Ukrainian telescope amateurs.
 Most of their work is shared on this huge [forum thread](http://www.astroclub.kiev.ua/forum/index.php?topic=28929.0).
